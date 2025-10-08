@@ -7,7 +7,8 @@
     "dev:check": "node scripts/dev-with-port-check.js",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --experimental-strip-types --test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
