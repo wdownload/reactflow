@@ -3,6 +3,7 @@
 import type React from "react"
 import { memo } from "react"
 import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge, MarkerType } from "@xyflow/react"
+import { EDGE_COLORS } from "@/lib/mindmap-logic"
 
 export interface CustomEdgeData extends Record<string, unknown> {
   color?: string
@@ -12,19 +13,6 @@ export interface CustomEdgeData extends Record<string, unknown> {
   label?: string
   indicator?: "none" | "arrow"
 }
-
-const EDGE_COLORS = [
-  "oklch(0.45 0.15 265)", // Purple
-  "oklch(0.45 0.15 240)", // Blue
-  "oklch(0.45 0.15 150)", // Green
-  "oklch(0.45 0.15 50)",  // Orange
-  "oklch(0.45 0.15 330)", // Pink
-  "oklch(0.45 0.15 20)",  // Red
-  "oklch(0.45 0.15 300)", // Magenta
-  "oklch(0.45 0.15 180)", // Cyan
-  "oklch(0.45 0.15 60)",  // Yellow
-  "oklch(0.45 0.15 120)", // Lime
-]
 
 export const MindMapEdge = memo(({
   id,

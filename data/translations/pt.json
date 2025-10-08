@@ -1,0 +1,18 @@
+{
+  "colors": {
+    "purple": "Roxo",
+    "blue": "Azul",
+    "green": "Verde",
+    "orange": "Laranja",
+    "pink": "Rosa",
+    "red": "Vermelho",
+    "magenta": "Magenta",
+    "cyan": "Ciano",
+    "yellow": "Amarelo",
+    "lime": "Verde-limão"
+  },
+  "labels": {
+    "centralIdea": "Ideia Central",
+    "newIdea": "Nova Ideia"
+  }
+}
