@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { memo } from "react"
-import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge } from "@xyflow/react"
+import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge, MarkerType } from "@xyflow/react"
 
 export interface CustomEdgeData extends Record<string, unknown> {
   color?: string
@@ -10,6 +10,7 @@ export interface CustomEdgeData extends Record<string, unknown> {
   dashed?: boolean
   animated?: boolean
   label?: string
+  indicator?: "none" | "arrow"
 }
 
 const EDGE_COLORS = [
@@ -54,6 +55,7 @@ export const MindMapEdge = memo(({
   const edgeSize = data?.size || 2
   const isDashed = data?.dashed || false
   const isAnimated = data?.animated || false
+  const indicator = data?.indicator || "none"
 
   const edgeStyle = {
     ...style,
@@ -63,13 +65,23 @@ export const MindMapEdge = memo(({
     strokeDashoffset: isAnimated && isDashed ? "0" : "none",
   }
 
+  const markerEndDefinition =
+    indicator === "arrow"
+      ? {
+          type: MarkerType.ArrowClosed,
+          color: edgeColor,
+          width: 22,
+          height: 22,
+        }
+      : undefined
+
   return (
     <>
       <BaseEdge
         id={id}
         path={edgePath}
         style={edgeStyle}
-        markerEnd={markerEnd}
+        markerEnd={markerEndDefinition ?? markerEnd}
         className={isAnimated ? (isDashed ? "animate-flow" : "animate-pulse") : ""}
       />
       {data?.label && (
