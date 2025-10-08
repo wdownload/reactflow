@@ -1,5 +1,5 @@
-import ptTranslations from "@/data/translations/pt.json"
-import zhTranslations from "@/data/translations/zh.json"
+import ptTranslations from "../data/translations/pt.json"
+import zhTranslations from "../data/translations/zh.json"
 
 export type SupportedLanguage = "en" | "pt" | "zh"
 

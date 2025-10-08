@@ -3,55 +3,24 @@
 import type React from "react"
 
 import { memo, useState, useCallback } from "react"
-import { Handle, Position, type NodeProps } from "@xyflow/react"
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react"
+import { EXTENDED_EMOJI_LIST } from "../lib/mindmap-logic"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-const EMOJI_OPTIONS = [
-  "💡",
-  "🎯",
-  "🚀",
-  "⭐",
-  "✨",
-  "🔥",
-  "💪",
-  "🎨",
-  "📝",
-  "📊",
-  "💼",
-  "🏆",
-  "🎓",
-  "🌟",
-  "💰",
-  "📈",
-  "🔔",
-  "⚡",
-  "🎉",
-  "🌈",
-  "🧠",
-  "💻",
-  "📱",
-  "🎮",
-  "🎵",
-  "📚",
-  "🔍",
-  "✅",
-  "❌",
-  "❓",
-  "🏠",
-  "🌍",
-  "🌙",
-  "☀️",
-  "🌸",
-  "🍀",
-  "🎁",
-  "🔑",
-  "🎪",
-  "🎭",
-]
+type MindMapNodeData = {
+  label: string
+  emoji?: string
+  color?: string
+  [key: string]: unknown
+}
 
-export const MindMapNode = memo(({ data, id }: NodeProps) => {
+type MindMapNodeType = Node<MindMapNodeData, "mindmap">
+
+const EMOJI_OPTIONS = EXTENDED_EMOJI_LIST
+
+export const MindMapNode = memo(({ data }: NodeProps<MindMapNodeType>) => {
   const [isEditing, setIsEditing] = useState(false)
   const [label, setLabel] = useState(data.label)
   const [emoji, setEmoji] = useState(data.emoji || "💡")
@@ -85,7 +54,7 @@ export const MindMapNode = memo(({ data, id }: NodeProps) => {
     [data],
   )
 
-  const nodeColor = data.color || "oklch(0.45 0.15 265)"
+  const nodeColor: string = data.color || "oklch(0.45 0.15 265)"
 
   return (
     <div

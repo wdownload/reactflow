@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@jest/globals"
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 
 import {
   DEFAULT_NODE_COLOR,
   DEFAULT_NODE_EMOJI,
   DEFAULT_NODE_LABEL,
   EDGE_COLORS,
+  EDGE_COLOR_OPTIONS,
+  EXTENDED_EMOJI_LIST,
   buildMindmapExport,
   createMindMapNode,
   assignSourceColor,
@@ -23,32 +26,41 @@ describe("createMindMapNode", () => {
 
     const node = createMindMapNode(5, undefined, random)
 
-    expect(node.id).toBe("5")
-    expect(node.type).toBe("mindmap")
-    expect(node.data).toEqual({
+    assert.equal(node.id, "5")
+    assert.equal(node.type, "mindmap")
+    assert.deepEqual(node.data, {
       label: DEFAULT_NODE_LABEL,
       emoji: DEFAULT_NODE_EMOJI,
       color: DEFAULT_NODE_COLOR,
     })
-    expect(node.position.x).toBeCloseTo(0.2 * 500 + 100)
-    expect(node.position.y).toBeCloseTo(0.4 * 500 + 100)
+    assert.ok(Math.abs(node.position.x - (0.2 * 500 + 100)) < 1e-6)
+    assert.ok(Math.abs(node.position.y - (0.4 * 500 + 100)) < 1e-6)
+  })
+
+  it("supports overriding the emoji while keeping defaults", () => {
+    const node = createMindMapNode("abc", "🎯", () => 0.5)
+
+    assert.equal(node.id, "abc")
+    assert.equal(node.data.emoji, "🎯")
+    assert.equal(node.data.label, DEFAULT_NODE_LABEL)
+    assert.equal(node.data.color, DEFAULT_NODE_COLOR)
   })
 })
 
 describe("assignSourceColor", () => {
   it("reuses palette intelligently", () => {
     const first = assignSourceColor("1", {})
-    expect(first.color).toBe(EDGE_COLORS[0])
-    expect(first.map["1"]).toBe(EDGE_COLORS[0])
+    assert.equal(first.color, EDGE_COLORS[0])
+    assert.equal(first.map["1"], EDGE_COLORS[0])
 
     const second = assignSourceColor("2", first.map)
-    expect(second.color).toBe(EDGE_COLORS[1])
-    expect(second.map["1"]).toBe(EDGE_COLORS[0])
-    expect(second.map["2"]).toBe(EDGE_COLORS[1])
+    assert.equal(second.color, EDGE_COLORS[1])
+    assert.equal(second.map["1"], EDGE_COLORS[0])
+    assert.equal(second.map["2"], EDGE_COLORS[1])
 
     const repeated = assignSourceColor("1", second.map)
-    expect(repeated.color).toBe(EDGE_COLORS[0])
-    expect(repeated.map).toEqual(second.map)
+    assert.equal(repeated.color, EDGE_COLORS[0])
+    assert.deepEqual(repeated.map, second.map)
 
     const filledPalette = EDGE_COLORS.reduce<Record<string, string>>((acc, color, index) => {
       acc[`node-${index}`] = color
@@ -56,8 +68,16 @@ describe("assignSourceColor", () => {
     }, {})
 
     const recycled = assignSourceColor("fresh", filledPalette)
-    expect(recycled.color).toBe(EDGE_COLORS[0])
-    expect(recycled.map.fresh).toBe(EDGE_COLORS[0])
+    assert.equal(recycled.color, EDGE_COLORS[0])
+    assert.equal(recycled.map.fresh, EDGE_COLORS[0])
+  })
+
+  it("keeps previously selected colors for the same source", () => {
+    const initial = assignSourceColor("source", {})
+    const next = assignSourceColor("source", initial.map)
+
+    assert.equal(initial.color, next.color)
+    assert.deepEqual(initial.map, next.map)
   })
 })
 
@@ -80,12 +100,12 @@ describe("autoArrangeNodes", () => {
     const node2 = arranged.find((node) => node.id === "2")!
     const node3 = arranged.find((node) => node.id === "3")!
 
-    expect(node1.position.x).toBe(100)
-    expect(node1.position.y).toBe(200)
-    expect(node2.position.x).toBe(400)
-    expect(node2.position.y).toBe(200)
-    expect(node3.position.x).toBe(400)
-    expect(node3.position.y).toBe(350)
+    assert.equal(node1.position.x, 100)
+    assert.equal(node1.position.y, 200)
+    assert.equal(node2.position.x, 400)
+    assert.equal(node2.position.y, 200)
+    assert.equal(node3.position.x, 400)
+    assert.equal(node3.position.y, 350)
   })
 
   it("randomises disconnected graphs", () => {
@@ -105,10 +125,10 @@ describe("autoArrangeNodes", () => {
 
     const arranged = autoArrangeNodes(nodes, edges, random)
 
-    expect(arranged[0].position.x).toBeCloseTo(0.1 * 800 + 100)
-    expect(arranged[0].position.y).toBeCloseTo(0.3 * 600 + 100)
-    expect(arranged[1].position.x).toBeCloseTo(0.5 * 800 + 100)
-    expect(arranged[1].position.y).toBeCloseTo(0.7 * 600 + 100)
+    assert.ok(Math.abs(arranged[0].position.x - (0.1 * 800 + 100)) < 1e-6)
+    assert.ok(Math.abs(arranged[0].position.y - (0.3 * 600 + 100)) < 1e-6)
+    assert.ok(Math.abs(arranged[1].position.x - (0.5 * 800 + 100)) < 1e-6)
+    assert.ok(Math.abs(arranged[1].position.y - (0.7 * 600 + 100)) < 1e-6)
   })
 })
 
@@ -124,10 +144,10 @@ describe("pushHistory", () => {
       })
     }
 
-    expect(result.history).toHaveLength(50)
-    expect(result.index).toBe(49)
-    expect(result.history[0].nodes[0]?.id).toBe("5")
-    expect(result.history[49].nodes[0]?.id).toBe("54")
+    assert.equal(result.history.length, 50)
+    assert.equal(result.index, 49)
+    assert.equal(result.history[0].nodes[0]?.id, "5")
+    assert.equal(result.history[49].nodes[0]?.id, "54")
   })
 })
 
@@ -143,6 +163,22 @@ describe("buildMindmapExport", () => {
     const json = buildMindmapExport(nodes, edges)
     const parsed = JSON.parse(json)
 
-    expect(parsed).toEqual({ nodes, edges })
+    assert.deepEqual(parsed, { nodes, edges })
+  })
+})
+
+describe("default configuration", () => {
+  it("exposes matching color metadata", () => {
+    assert.equal(EDGE_COLOR_OPTIONS.length, EDGE_COLORS.length)
+    EDGE_COLOR_OPTIONS.forEach((option) => {
+      assert.ok(option.id.length > 0)
+      assert.ok(option.name.length > 0)
+      assert.ok(option.value.length > 0)
+    })
+  })
+
+  it("includes emojis for interactive palette", () => {
+    assert.ok(EXTENDED_EMOJI_LIST.length > 0)
+    assert.ok(EXTENDED_EMOJI_LIST.includes(DEFAULT_NODE_EMOJI))
   })
 })

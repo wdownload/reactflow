@@ -1,4 +1,4 @@
-import defaultsData from "@/data/defaults.json"
+import defaultsData from "../data/defaults.json"
 import type { Edge, Node } from "@xyflow/react"
 
 type LabelConfig = {

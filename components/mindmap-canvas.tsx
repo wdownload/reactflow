@@ -14,6 +14,7 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type NodeTypes,
   BackgroundVariant,
   Panel,
 } from "@xyflow/react"
@@ -45,11 +46,12 @@ import {
   pushHistory,
   buildMindmapExport,
 } from "@/lib/mindmap-logic"
+import { isValidCssColor } from "@/lib/color"
 import { translateColor, translateLabel, type SupportedLanguage } from "@/lib/localization"
 
 const nodeTypes = {
   mindmap: MindMapNode,
-}
+} satisfies NodeTypes
 
 const edgeTypes = {
   mindmap: MindMapEdge as any,

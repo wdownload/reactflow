@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it, beforeEach, afterEach } from "node:test"
 
-import { isValidCssColor } from "../lib/color.ts"
+import { isValidCssColor } from "../lib/color"
 
 describe("isValidCssColor", () => {
   let originalCSS: typeof globalThis.CSS
@@ -9,16 +9,14 @@ describe("isValidCssColor", () => {
   beforeEach(() => {
     originalCSS = globalThis.CSS
     // Ensure CSS API is not defined unless explicitly set inside a test
-    // @ts-expect-error - allow manipulating the global for tests
-    delete globalThis.CSS
+    delete (globalThis as { CSS?: typeof globalThis.CSS }).CSS
   })
 
   afterEach(() => {
     if (originalCSS) {
       globalThis.CSS = originalCSS
     } else {
-      // @ts-expect-error - cleanup test mutation
-      delete globalThis.CSS
+      delete (globalThis as { CSS?: typeof globalThis.CSS }).CSS
     }
   })
 
@@ -41,17 +39,27 @@ describe("isValidCssColor", () => {
   })
 
   it("defers to CSS.supports when available", () => {
-    // @ts-expect-error - simulate browser CSS API
-    globalThis.CSS = {
-      supports: (property: string, value: string) => property === "color" && value === "papayawhip",
+    const cssSupports = {
+      supports(propertyOrCondition: string, value?: string) {
+        if (typeof value === "undefined") {
+          return propertyOrCondition === "color: papayawhip"
+        }
+
+        return propertyOrCondition === "color" && value === "papayawhip"
+      },
     }
+
+    globalThis.CSS = cssSupports as typeof globalThis.CSS
 
     assert.equal(isValidCssColor("papayawhip"), true)
 
-    // @ts-expect-error - simulate environment rejecting the value
     globalThis.CSS = {
-      supports: () => false,
-    }
+      supports(propertyOrCondition: string, value?: string) {
+        void propertyOrCondition
+        void value
+        return false
+      },
+    } as unknown as typeof globalThis.CSS
 
     assert.equal(isValidCssColor("papayawhip"), false)
   })
