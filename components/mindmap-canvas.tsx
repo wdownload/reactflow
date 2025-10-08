@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useCallback, useState, useRef, useEffect } from "react"
+import { useCallback, useState, useRef, useEffect, useMemo } from "react"
 import {
   ReactFlow,
   MiniMap,
@@ -14,6 +14,7 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type NodeTypes,
   BackgroundVariant,
   Panel,
 } from "@xyflow/react"
@@ -29,9 +30,15 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
   COLOR_PRESETS,
+  EDGE_COLOR_OPTIONS,
   EDGE_COLORS,
+  EXTENDED_EMOJI_LIST,
   DEFAULT_NODE_COLOR,
   DEFAULT_NODE_EMOJI,
+  DEFAULT_NODE_LABEL,
+  DEFAULT_NODE_LABEL_ID,
+  INITIAL_NODE_EMOJI,
+  INITIAL_NODE_LABEL,
   type MindMapHistoryState,
   createMindMapNode,
   assignSourceColor,
@@ -39,10 +46,12 @@ import {
   pushHistory,
   buildMindmapExport,
 } from "@/lib/mindmap-logic"
+import { isValidCssColor } from "@/lib/color"
+import { translateColor, translateLabel, type SupportedLanguage } from "@/lib/localization"
 
 const nodeTypes = {
   mindmap: MindMapNode,
-}
+} satisfies NodeTypes
 
 const edgeTypes = {
   mindmap: MindMapEdge as any,
@@ -52,130 +61,18 @@ const initialNodes: Node[] = [
   {
     id: "1",
     type: "mindmap",
-    data: { label: "Central Idea", emoji: "💡", color: DEFAULT_NODE_COLOR },
+    data: { label: INITIAL_NODE_LABEL, emoji: INITIAL_NODE_EMOJI, color: DEFAULT_NODE_COLOR },
     position: { x: 250, y: 250 },
   },
 ]
 
 const initialEdges: Edge[] = []
 
-const EXTENDED_EMOJI_LIST = [
-  "💡",
-  "🎯",
-  "🚀",
-  "⭐",
-  "✨",
-  "🔥",
-  "💪",
-  "🎨",
-  "📝",
-  "📊",
-  "💼",
-  "🏆",
-  "🎓",
-  "🌟",
-  "💰",
-  "📈",
-  "🔔",
-  "⚡",
-  "🎉",
-  "🌈",
-  "🧠",
-  "💻",
-  "📱",
-  "🎮",
-  "🎵",
-  "📚",
-  "🔍",
-  "✅",
-  "❌",
-  "❓",
-  "🏠",
-  "🌍",
-  "🌙",
-  "☀️",
-  "🌸",
-  "🍀",
-  "🎁",
-  "🔑",
-  "🎪",
-  "🎭",
-  "🎬",
-  "📷",
-  "🎤",
-  "🎧",
-  "🎸",
-  "🎹",
-  "🎺",
-  "🎻",
-  "🥁",
-  "🎲",
-  "🎯",
-  "🎰",
-  "🎳",
-  "🏀",
-  "⚽",
-  "🏈",
-  "⚾",
-  "🎾",
-  "🏐",
-  "🏉",
-  "🥊",
-  "🥋",
-  "🏓",
-  "🏸",
-  "🏒",
-  "🏑",
-  "🥍",
-  "🏏",
-  "🥅",
-  "⛳",
-  "🏹",
-  "🎣",
-  "🤿",
-  "🥊",
-  "🥋",
-  "🎽",
-  "🛹",
-  "🛼",
-  "🛷",
-  "⛸️",
-  "🥌",
-  "🎿",
-  "⛷️",
-  "🏂",
-  "🪂",
-  "🏋️",
-  "🤸",
-  "🤺",
-  "🤾",
-  "🏌️",
-  "🧘",
-  "🏃",
-  "🚴",
-  "🤹",
-  "🧗",
-  "🤠",
-  "🥳",
-  "🥸",
-  "😎",
-  "🤓",
-  "🧐",
-  "🤩",
-  "🥰",
-  "😍",
-  "🤗",
-  "🤭",
-  "🤫",
-  "🤔",
-  "🤐",
-  "🤨",
-]
-
 export function MindMapCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [nodeId, setNodeId] = useState(2)
+  const [language, setLanguage] = useState<SupportedLanguage>("en")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<"edit" | "preview">("edit")
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -185,6 +82,22 @@ export function MindMapCanvas() {
   const [toolboxPosition, setToolboxPosition] = useState({ x: 16, y: 0 })
   const [isDraggingToolbox, setIsDraggingToolbox] = useState(false)
   const toolboxDragStart = useRef({ x: 0, y: 0 })
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") {
+      return
+    }
+
+    const locale = navigator.language?.toLowerCase().slice(0, 2)
+
+    if (locale === "pt") {
+      setLanguage("pt")
+    } else if (locale === "zh") {
+      setLanguage("zh")
+    } else {
+      setLanguage("en")
+    }
+  }, [])
 
   const [history, setHistory] = useState<MindMapHistoryState[]>([{ nodes: initialNodes, edges: initialEdges }])
   const [historyIndex, setHistoryIndex] = useState(0)
@@ -198,6 +111,14 @@ export function MindMapCanvas() {
   const [edgeColorInput, setEdgeColorInput] = useState("")
   const [nodeColorValid, setNodeColorValid] = useState(true)
   const [edgeColorValid, setEdgeColorValid] = useState(true)
+  const edgeSettings = useMemo(
+    () => ({
+      size: 2,
+      dashed: false,
+      animated: false,
+    }),
+    [],
+  )
 
   useEffect(() => {
     const selected = nodes.find((node) => node.selected)
@@ -223,7 +144,7 @@ export function MindMapCanvas() {
   useEffect(() => {
     if (selectedEdge) {
       const edgeData = selectedEdge.data as CustomEdgeData
-      const colorValue = edgeData?.color || EDGE_COLORS[0]
+      const colorValue = edgeData?.color || EDGE_COLOR_OPTIONS[0]?.value || EDGE_COLORS[0]
       setEdgeColorInput(colorValue)
       setEdgeColorValid(true)
     } else {
@@ -468,7 +389,7 @@ export function MindMapCanvas() {
     }
 
     const edgeData = selectedEdge.data as CustomEdgeData
-    const fallbackColor = edgeData?.color || EDGE_COLORS[0]
+    const fallbackColor = edgeData?.color || EDGE_COLOR_OPTIONS[0]?.value || EDGE_COLORS[0]
     setEdgeColorInput(fallbackColor)
     setEdgeColorValid(true)
   }, [edgeColorValid, selectedEdge])
@@ -641,6 +562,7 @@ export function MindMapCanvas() {
                 value={selectedNode.data.label as string}
                 onChange={(e) => updateSelectedNode({ label: e.target.value })}
                 className="h-6 text-[11px]"
+                placeholder={translateLabel(DEFAULT_NODE_LABEL_ID, DEFAULT_NODE_LABEL, language)}
               />
             </div>
 
@@ -654,14 +576,14 @@ export function MindMapCanvas() {
               <div className="grid grid-cols-3 gap-1">
                 {COLOR_PRESETS.map((color) => (
                   <button
-                    key={color.name}
+                    key={color.id}
                     onClick={() => updateSelectedNode({ color: color.value })}
                     className="h-7 rounded-md border-2 transition-all hover:scale-105"
                     style={{
                       backgroundColor: color.value,
                       borderColor: selectedNode.data.color === color.value ? "white" : "transparent",
                     }}
-                    title={color.name}
+                    title={translateColor(color.id, color.name, language)}
                   />
                 ))}
               </div>
@@ -723,16 +645,17 @@ export function MindMapCanvas() {
             <div className="space-y-1">
               <Label className="text-[9px]">Color</Label>
               <div className="grid grid-cols-3 gap-1">
-                {EDGE_COLORS.map((color, index) => (
+                {EDGE_COLOR_OPTIONS.map((color) => (
                   <button
-                    key={index}
-                    onClick={() => updateSelectedEdge({ color })}
+                    key={color.id}
+                    onClick={() => updateSelectedEdge({ color: color.value })}
                     className="h-7 rounded-md border-2 transition-all hover:scale-105"
                     style={{
-                      backgroundColor: color,
-                      borderColor: (selectedEdge.data as CustomEdgeData)?.color === color ? "white" : "transparent",
+                      backgroundColor: color.value,
+                      borderColor:
+                        (selectedEdge.data as CustomEdgeData)?.color === color.value ? "white" : "transparent",
                     }}
-                    title={`Color ${index + 1}`}
+                    title={translateColor(color.id, color.name, language)}
                   />
                 ))}
               </div>
@@ -756,7 +679,10 @@ export function MindMapCanvas() {
                       backgroundColor:
                         edgeColorValid && edgeColorInput
                           ? edgeColorInput
-                          : ((selectedEdge.data as CustomEdgeData)?.color || EDGE_COLORS[0]),
+                          :
+                            (selectedEdge.data as CustomEdgeData)?.color ||
+                            EDGE_COLOR_OPTIONS[0]?.value ||
+                            EDGE_COLORS[0],
                     }}
                     aria-hidden="true"
                   />

@@ -1,30 +1,49 @@
+import defaultsData from "../data/defaults.json"
 import type { Edge, Node } from "@xyflow/react"
 
-export const DEFAULT_NODE_COLOR = "oklch(0.45 0.15 265)"
-export const DEFAULT_NODE_EMOJI = "✨"
-export const DEFAULT_NODE_LABEL = "New Idea"
+type LabelConfig = {
+  id: string
+  text: string
+}
 
-export const COLOR_PRESETS = [
-  { name: "Purple", value: "oklch(0.45 0.15 265)" },
-  { name: "Blue", value: "oklch(0.45 0.15 240)" },
-  { name: "Green", value: "oklch(0.45 0.15 150)" },
-  { name: "Orange", value: "oklch(0.45 0.15 50)" },
-  { name: "Pink", value: "oklch(0.45 0.15 330)" },
-  { name: "Red", value: "oklch(0.45 0.15 20)" },
-]
+export type ColorOption = {
+  id: string
+  name: string
+  value: string
+}
 
-export const EDGE_COLORS = [
-  "oklch(0.45 0.15 265)", // Purple
-  "oklch(0.45 0.15 240)", // Blue
-  "oklch(0.45 0.15 150)", // Green
-  "oklch(0.45 0.15 50)",  // Orange
-  "oklch(0.45 0.15 330)", // Pink
-  "oklch(0.45 0.15 20)",  // Red
-  "oklch(0.45 0.15 300)", // Magenta
-  "oklch(0.45 0.15 180)", // Cyan
-  "oklch(0.45 0.15 60)",  // Yellow
-  "oklch(0.45 0.15 120)", // Lime
-]
+type DefaultsConfig = {
+  defaults: {
+    nodeColor: string
+    nodeEmoji: string
+    nodeLabel: LabelConfig
+    initialNode: {
+      emoji: string
+      label: LabelConfig
+    }
+  }
+  colorPresets: ColorOption[]
+  edgeColors: ColorOption[]
+  emojiList: string[]
+}
+
+const CONFIG = defaultsData as DefaultsConfig
+
+export const DEFAULT_NODE_COLOR = CONFIG.defaults.nodeColor
+export const DEFAULT_NODE_EMOJI = CONFIG.defaults.nodeEmoji
+export const DEFAULT_NODE_LABEL = CONFIG.defaults.nodeLabel.text
+export const DEFAULT_NODE_LABEL_ID = CONFIG.defaults.nodeLabel.id
+
+export const INITIAL_NODE_LABEL = CONFIG.defaults.initialNode.label.text
+export const INITIAL_NODE_LABEL_ID = CONFIG.defaults.initialNode.label.id
+export const INITIAL_NODE_EMOJI = CONFIG.defaults.initialNode.emoji
+
+export const COLOR_PRESETS = CONFIG.colorPresets
+
+export const EDGE_COLOR_OPTIONS = CONFIG.edgeColors
+export const EDGE_COLORS = EDGE_COLOR_OPTIONS.map((option) => option.value)
+
+export const EXTENDED_EMOJI_LIST = CONFIG.emojiList
 
 export type MindMapHistoryState = {
   nodes: Node[]

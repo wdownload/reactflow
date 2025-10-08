@@ -2,7 +2,8 @@
 
 import type React from "react"
 import { memo } from "react"
-import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge, MarkerType } from "@xyflow/react"
+import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge, MarkerType, type Edge } from "@xyflow/react"
+import { EDGE_COLORS } from "@/lib/mindmap-logic"
 
 export interface CustomEdgeData extends Record<string, unknown> {
   color?: string
@@ -13,18 +14,7 @@ export interface CustomEdgeData extends Record<string, unknown> {
   indicator?: "none" | "arrow"
 }
 
-const EDGE_COLORS = [
-  "oklch(0.45 0.15 265)", // Purple
-  "oklch(0.45 0.15 240)", // Blue
-  "oklch(0.45 0.15 150)", // Green
-  "oklch(0.45 0.15 50)",  // Orange
-  "oklch(0.45 0.15 330)", // Pink
-  "oklch(0.45 0.15 20)",  // Red
-  "oklch(0.45 0.15 300)", // Magenta
-  "oklch(0.45 0.15 180)", // Cyan
-  "oklch(0.45 0.15 60)",  // Yellow
-  "oklch(0.45 0.15 120)", // Lime
-]
+type MindMapEdgeProps = EdgeProps<Edge<CustomEdgeData>>
 
 export const MindMapEdge = memo(({
   id,
@@ -41,7 +31,7 @@ export const MindMapEdge = memo(({
   deletable = true,
   selected = false,
   animated = false,
-}: EdgeProps<CustomEdgeData>) => {
+}: MindMapEdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -51,29 +41,23 @@ export const MindMapEdge = memo(({
     targetPosition,
   })
 
-  const edgeColor = data?.color || EDGE_COLORS[0]
-  const edgeSize = data?.size || 2
-  const isDashed = data?.dashed || false
-  const isAnimated = data?.animated || false
-  const indicator = data?.indicator || "none"
+  const edgeData: CustomEdgeData = data ?? {}
+
+  const edgeColor = edgeData.color || EDGE_COLORS[0]
+  const edgeSize = edgeData.size || 2
+  const isDashed = edgeData.dashed || false
+  const isAnimated = edgeData.animated || false
+  const indicator = edgeData.indicator || "none"
 
   const edgeStyle = {
-    ...style,
+    ...(style ?? {}),
     stroke: edgeColor,
     strokeWidth: edgeSize,
     strokeDasharray: isDashed ? "5,5" : "none",
     strokeDashoffset: isAnimated && isDashed ? "0" : "none",
   }
 
-  const markerEndDefinition =
-    indicator === "arrow"
-      ? {
-          type: MarkerType.ArrowClosed,
-          color: edgeColor,
-          width: 22,
-          height: 22,
-        }
-      : undefined
+  const markerEndDefinition: string | undefined = indicator === "arrow" ? MarkerType.ArrowClosed : undefined
 
   return (
     <>
@@ -84,7 +68,7 @@ export const MindMapEdge = memo(({
         markerEnd={markerEndDefinition ?? markerEnd}
         className={isAnimated ? (isDashed ? "animate-flow" : "animate-pulse") : ""}
       />
-      {data?.label && (
+      {edgeData.label && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -101,7 +85,7 @@ export const MindMapEdge = memo(({
             }}
             className="nodrag nopan"
           >
-            {data.label}
+            {edgeData.label}
           </div>
         </EdgeLabelRenderer>
       )}

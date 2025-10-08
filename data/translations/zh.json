@@ -1,0 +1,18 @@
+{
+  "colors": {
+    "purple": "紫色",
+    "blue": "蓝色",
+    "green": "绿色",
+    "orange": "橙色",
+    "pink": "粉色",
+    "red": "红色",
+    "magenta": "洋红色",
+    "cyan": "青色",
+    "yellow": "黄色",
+    "lime": "酸橙色"
+  },
+  "labels": {
+    "centralIdea": "中心想法",
+    "newIdea": "新想法"
+  }
+}
