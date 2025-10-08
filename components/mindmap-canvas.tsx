@@ -194,11 +194,10 @@ export function MindMapCanvas() {
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null)
   const [sourceColors, setSourceColors] = useState<{ [key: string]: string }>({})
-  const [edgeSettings, setEdgeSettings] = useState({
-    size: 2,
-    dashed: false,
-    animated: false,
-  })
+  const [nodeColorInput, setNodeColorInput] = useState("")
+  const [edgeColorInput, setEdgeColorInput] = useState("")
+  const [nodeColorValid, setNodeColorValid] = useState(true)
+  const [edgeColorValid, setEdgeColorValid] = useState(true)
 
   useEffect(() => {
     const selected = nodes.find((node) => node.selected)
@@ -206,9 +205,32 @@ export function MindMapCanvas() {
   }, [nodes])
 
   useEffect(() => {
+    if (selectedNode) {
+      const colorValue = (selectedNode.data.color as string) || ""
+      setNodeColorInput(colorValue)
+      setNodeColorValid(true)
+    } else {
+      setNodeColorInput("")
+      setNodeColorValid(true)
+    }
+  }, [selectedNode])
+
+  useEffect(() => {
     const selected = edges.find((edge) => edge.selected)
     setSelectedEdge(selected || null)
   }, [edges])
+
+  useEffect(() => {
+    if (selectedEdge) {
+      const edgeData = selectedEdge.data as CustomEdgeData
+      const colorValue = edgeData?.color || EDGE_COLORS[0]
+      setEdgeColorInput(colorValue)
+      setEdgeColorValid(true)
+    } else {
+      setEdgeColorInput("")
+      setEdgeColorValid(true)
+    }
+  }, [selectedEdge])
 
   useEffect(() => {
     if (isUndoRedoAction.current) {
@@ -316,6 +338,28 @@ export function MindMapCanvas() {
     [selectedNode, setNodes],
   )
 
+  const handleNodeColorInputChange = useCallback(
+    (value: string) => {
+      setNodeColorInput(value)
+      const isValid = isValidCssColor(value)
+      setNodeColorValid(isValid)
+      if (isValid) {
+        updateSelectedNode({ color: value })
+      }
+    },
+    [updateSelectedNode],
+  )
+
+  const handleNodeColorInputBlur = useCallback(() => {
+    if (nodeColorValid || !selectedNode) {
+      return
+    }
+
+    const fallbackColor = (selectedNode.data.color as string) || ""
+    setNodeColorInput(fallbackColor)
+    setNodeColorValid(true)
+  }, [nodeColorValid, selectedNode])
+
   const exportMindmap = useCallback(() => {
     const json = buildMindmapExport(nodes, edges)
     const blob = new Blob([json], {
@@ -387,23 +431,53 @@ export function MindMapCanvas() {
       setEdges((eds) =>
         eds.map((edge) => {
           if (edge.id === selectedEdge.id) {
+            const mergedData: CustomEdgeData = { ...(edge.data as CustomEdgeData), ...updates }
             return {
               ...edge,
-              data: { ...edge.data, ...updates },
+              data: mergedData,
             }
           }
           return edge
         }),
       )
+      if (updates.color && selectedEdge.source) {
+        setSourceColors((prev) => ({
+          ...prev,
+          [selectedEdge.source!]: updates.color as string,
+        }))
+      }
     },
-    [selectedEdge, setEdges],
+    [selectedEdge, setEdges, setSourceColors],
   )
 
-  const updateEdgeSettings = useCallback(
-    (updates: Partial<typeof edgeSettings>) => {
-      setEdgeSettings(prev => ({ ...prev, ...updates }))
+  const handleEdgeColorInputChange = useCallback(
+    (value: string) => {
+      setEdgeColorInput(value)
+      const isValid = isValidCssColor(value)
+      setEdgeColorValid(isValid)
+      if (isValid) {
+        updateSelectedEdge({ color: value })
+      }
     },
-    [],
+    [updateSelectedEdge],
+  )
+
+  const handleEdgeColorInputBlur = useCallback(() => {
+    if (edgeColorValid || !selectedEdge) {
+      return
+    }
+
+    const edgeData = selectedEdge.data as CustomEdgeData
+    const fallbackColor = edgeData?.color || EDGE_COLORS[0]
+    setEdgeColorInput(fallbackColor)
+    setEdgeColorValid(true)
+  }, [edgeColorValid, selectedEdge])
+
+  const handleEdgeIndicatorChange = useCallback(
+    (value: CustomEdgeData["indicator"]) => {
+      updateSelectedEdge({ indicator: value })
+    },
+    [updateSelectedEdge],
   )
 
   return (
@@ -591,6 +665,35 @@ export function MindMapCanvas() {
                   />
                 ))}
               </div>
+              <div className="space-y-1 pt-1">
+                <Label htmlFor="node-color-code" className="text-[9px]">
+                  Color code
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="node-color-code"
+                    value={nodeColorInput}
+                    onChange={(e) => handleNodeColorInputChange(e.target.value)}
+                    onBlur={handleNodeColorInputBlur}
+                    className="h-6 text-[11px]"
+                    placeholder="#7c3aed or rgb(124, 58, 237)"
+                    aria-invalid={!nodeColorValid}
+                  />
+                  <span
+                    className="h-6 w-6 rounded border border-border/60"
+                    style={{
+                      backgroundColor:
+                        nodeColorValid && nodeColorInput
+                          ? nodeColorInput
+                          : (selectedNode.data.color as string),
+                    }}
+                    aria-hidden="true"
+                  />
+                </div>
+                {!nodeColorValid && (
+                  <p className="text-[9px] text-destructive">Enter a valid CSS color value.</p>
+                )}
+              </div>
             </div>
 
             <Separator />
@@ -633,6 +736,35 @@ export function MindMapCanvas() {
                   />
                 ))}
               </div>
+              <div className="space-y-1 pt-1">
+                <Label htmlFor="edge-color-code" className="text-[9px]">
+                  Color code
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="edge-color-code"
+                    value={edgeColorInput}
+                    onChange={(e) => handleEdgeColorInputChange(e.target.value)}
+                    onBlur={handleEdgeColorInputBlur}
+                    className="h-6 text-[11px]"
+                    placeholder="#64748b or rgb(100, 116, 139)"
+                    aria-invalid={!edgeColorValid}
+                  />
+                  <span
+                    className="h-6 w-6 rounded border border-border/60"
+                    style={{
+                      backgroundColor:
+                        edgeColorValid && edgeColorInput
+                          ? edgeColorInput
+                          : ((selectedEdge.data as CustomEdgeData)?.color || EDGE_COLORS[0]),
+                    }}
+                    aria-hidden="true"
+                  />
+                </div>
+                {!edgeColorValid && (
+                  <p className="text-[9px] text-destructive">Enter a valid CSS color value.</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -672,6 +804,21 @@ export function MindMapCanvas() {
                   Animated
                 </label>
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="edge-indicator" className="text-[9px]">
+                Indicator
+              </Label>
+              <select
+                id="edge-indicator"
+                value={(selectedEdge.data as CustomEdgeData)?.indicator || "none"}
+                onChange={(e) => handleEdgeIndicatorChange(e.target.value as CustomEdgeData["indicator"])}
+                className="h-6 w-full rounded-md border border-input bg-background px-2 text-[11px]"
+              >
+                <option value="none">None</option>
+                <option value="arrow">Arrow</option>
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -813,36 +960,6 @@ export function MindMapCanvas() {
               <Layout className="h-4 w-4" />
               Arrange
             </Button>
-            <div className="flex items-center gap-2 px-2 py-1 bg-background/50 rounded border">
-              <Label className="text-xs text-muted-foreground">Edge:</Label>
-              <input
-                type="range"
-                min="1"
-                max="8"
-                value={edgeSettings.size}
-                onChange={(e) => updateEdgeSettings({ size: Number(e.target.value) })}
-                className="w-16"
-                title="Edge thickness"
-              />
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={edgeSettings.dashed}
-                  onChange={(e) => updateEdgeSettings({ dashed: e.target.checked })}
-                  className="rounded"
-                />
-                Dashed
-              </label>
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={edgeSettings.animated}
-                  onChange={(e) => updateEdgeSettings({ animated: e.target.checked })}
-                  className="rounded"
-                />
-                Animated
-              </label>
-            </div>
             <input ref={fileInputRef} type="file" accept=".json" onChange={importMindmap} className="hidden" />
           </div>
         </Panel>
