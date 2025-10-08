@@ -26,7 +26,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { isValidCssColor } from "@/lib/color"
+import { ThemeToggle } from "@/components/theme-toggle"
+import {
+  COLOR_PRESETS,
+  EDGE_COLORS,
+  DEFAULT_NODE_COLOR,
+  DEFAULT_NODE_EMOJI,
+  type MindMapHistoryState,
+  createMindMapNode,
+  assignSourceColor,
+  autoArrangeNodes,
+  pushHistory,
+  buildMindmapExport,
+} from "@/lib/mindmap-logic"
 
 const nodeTypes = {
   mindmap: MindMapNode,
@@ -40,48 +52,12 @@ const initialNodes: Node[] = [
   {
     id: "1",
     type: "mindmap",
-    data: { label: "Central Idea", emoji: "💡", color: "oklch(0.45 0.15 265)" },
+    data: { label: "Central Idea", emoji: "💡", color: DEFAULT_NODE_COLOR },
     position: { x: 250, y: 250 },
   },
 ]
 
 const initialEdges: Edge[] = []
-
-type HistoryState = {
-  nodes: Node[]
-  edges: Edge[]
-}
-
-const COLOR_PRESETS = [
-  { name: "Purple", value: "oklch(0.45 0.15 265)" },
-  { name: "Blue", value: "oklch(0.45 0.15 240)" },
-  { name: "Green", value: "oklch(0.45 0.15 150)" },
-  { name: "Orange", value: "oklch(0.45 0.15 50)" },
-  { name: "Pink", value: "oklch(0.45 0.15 330)" },
-  { name: "Red", value: "oklch(0.45 0.15 20)" },
-]
-
-const EDGE_COLORS = [
-  "oklch(0.45 0.15 265)", // Purple
-  "oklch(0.45 0.15 240)", // Blue
-  "oklch(0.45 0.15 150)", // Green
-  "oklch(0.45 0.15 50)",  // Orange
-  "oklch(0.45 0.15 330)", // Pink
-  "oklch(0.45 0.15 20)",  // Red
-  "oklch(0.45 0.15 300)", // Magenta
-  "oklch(0.45 0.15 180)", // Cyan
-  "oklch(0.45 0.15 60)",  // Yellow
-  "oklch(0.45 0.15 120)", // Lime
-]
-
-const EDGE_DEFAULT_STYLE: Required<Pick<CustomEdgeData, "size" | "dashed" | "animated">> & {
-  indicator: NonNullable<CustomEdgeData["indicator"]>
-} = {
-  size: 2,
-  dashed: false,
-  animated: false,
-  indicator: "none",
-}
 
 const EXTENDED_EMOJI_LIST = [
   "💡",
@@ -210,9 +186,10 @@ export function MindMapCanvas() {
   const [isDraggingToolbox, setIsDraggingToolbox] = useState(false)
   const toolboxDragStart = useRef({ x: 0, y: 0 })
 
-  const [history, setHistory] = useState<HistoryState[]>([{ nodes: initialNodes, edges: initialEdges }])
+  const [history, setHistory] = useState<MindMapHistoryState[]>([{ nodes: initialNodes, edges: initialEdges }])
   const [historyIndex, setHistoryIndex] = useState(0)
   const isUndoRedoAction = useRef(false)
+  const historyIndexRef = useRef(0)
 
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null)
@@ -261,20 +238,18 @@ export function MindMapCanvas() {
       return
     }
 
-    const newState = { nodes, edges }
-    const newHistory = history.slice(0, historyIndex + 1)
-    newHistory.push(newState)
-
     setSaveStatus("draft")
-
-    if (newHistory.length > 50) {
-      newHistory.shift()
-    } else {
-      setHistoryIndex(historyIndex + 1)
-    }
-
-    setHistory(newHistory)
+    setHistory((prevHistory) => {
+      const { history: updatedHistory, index } = pushHistory(prevHistory, historyIndexRef.current, { nodes, edges })
+      historyIndexRef.current = index
+      setHistoryIndex(index)
+      return updatedHistory
+    })
   }, [nodes, edges])
+
+  useEffect(() => {
+    historyIndexRef.current = historyIndex
+  }, [historyIndex])
 
   const handleToolboxMouseDown = (e: React.MouseEvent) => {
     setIsDraggingToolbox(true)
@@ -313,6 +288,7 @@ export function MindMapCanvas() {
     if (historyIndex > 0) {
       isUndoRedoAction.current = true
       const newIndex = historyIndex - 1
+      historyIndexRef.current = newIndex
       setHistoryIndex(newIndex)
       setNodes(history[newIndex].nodes)
       setEdges(history[newIndex].edges)
@@ -323,6 +299,7 @@ export function MindMapCanvas() {
     if (historyIndex < history.length - 1) {
       isUndoRedoAction.current = true
       const newIndex = historyIndex + 1
+      historyIndexRef.current = newIndex
       setHistoryIndex(newIndex)
       setNodes(history[newIndex].nodes)
       setEdges(history[newIndex].edges)
@@ -330,16 +307,8 @@ export function MindMapCanvas() {
   }, [historyIndex, history, setNodes, setEdges])
 
   const addNode = useCallback(
-    (emoji = "✨") => {
-      const newNode: Node = {
-        id: `${nodeId}`,
-        type: "mindmap",
-        data: { label: "New Idea", emoji, color: "oklch(0.45 0.15 265)" },
-        position: {
-          x: Math.random() * 500 + 100,
-          y: Math.random() * 500 + 100,
-        },
-      }
+    (emoji = DEFAULT_NODE_EMOJI) => {
+      const newNode = createMindMapNode(nodeId, emoji)
       setNodes((nds) => [...nds, newNode])
       setNodeId((id) => id + 1)
     },
@@ -392,11 +361,8 @@ export function MindMapCanvas() {
   }, [nodeColorValid, selectedNode])
 
   const exportMindmap = useCallback(() => {
-    const data = {
-      nodes,
-      edges,
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+    const json = buildMindmapExport(nodes, edges)
+    const blob = new Blob([json], {
       type: "application/json",
     })
     const url = URL.createObjectURL(blob)
@@ -432,134 +398,32 @@ export function MindMapCanvas() {
     [setNodes, setEdges],
   )
 
-  const onConnect = useCallback((params: Connection) => {
-    if (!params.source || !params.target) return
+  const onConnect = useCallback(
+    (params: Connection) => {
+      if (!params.source || !params.target) return
 
-    // Get or assign color for this source node
-    let sourceColor = sourceColors[params.source]
-    if (!sourceColor) {
-      const usedColors = Object.values(sourceColors)
-      const availableColors = EDGE_COLORS.filter(color => !usedColors.includes(color))
-      sourceColor = availableColors[0] || EDGE_COLORS[0]
-      setSourceColors(prev => ({ ...prev, [params.source!]: sourceColor! }))
-    }
+      const { color, map } = assignSourceColor(params.source!, sourceColors, EDGE_COLORS)
+      const newEdge: Edge = {
+        ...params,
+        id: `${params.source}-${params.target}`,
+        type: "mindmap",
+        data: {
+          color,
+          size: edgeSettings.size,
+          dashed: edgeSettings.dashed,
+          animated: edgeSettings.animated,
+        },
+      }
 
-    const newEdge: Edge = {
-      ...params,
-      id: `${params.source}-${params.target}`,
-      type: "mindmap",
-      data: {
-        color: sourceColor,
-        size: EDGE_DEFAULT_STYLE.size,
-        dashed: EDGE_DEFAULT_STYLE.dashed,
-        animated: EDGE_DEFAULT_STYLE.animated,
-        indicator: EDGE_DEFAULT_STYLE.indicator,
-      },
-    }
+      setEdges((eds) => addEdge(newEdge, eds))
+      setSourceColors(map)
+    },
+    [edgeSettings, setEdges, sourceColors],
+  )
 
-    setEdges((eds) => addEdge(newEdge, eds))
-  }, [setEdges, sourceColors])
-
-  // Auto-arrange algorithm
   const autoArrange = useCallback(() => {
-    if (nodes.length === 0) return
-
-    const NODE_WIDTH = 200
-    const NODE_HEIGHT = 80
-    const HORIZONTAL_SPACING = 300
-    const VERTICAL_SPACING = 150
-    const LEVEL_HEIGHT = 200
-
-    // Build adjacency list
-    const adjacencyList: { [key: string]: string[] } = {}
-    const inDegree: { [key: string]: number } = {}
-    
-    // Initialize
-    nodes.forEach(node => {
-      adjacencyList[node.id] = []
-      inDegree[node.id] = 0
-    })
-
-    // Build graph
-    edges.forEach(edge => {
-      if (edge.source && edge.target) {
-        adjacencyList[edge.source].push(edge.target)
-        inDegree[edge.target]++
-      }
-    })
-
-    // Find root nodes (nodes with no incoming edges)
-    const rootNodes = nodes.filter(node => inDegree[node.id] === 0)
-    
-    if (rootNodes.length === 0) {
-      // If no clear root, use the first node
-      const firstNode = nodes[0]
-      const newNodes = nodes.map(node => ({
-        ...node,
-        position: {
-          x: Math.random() * 800 + 100,
-          y: Math.random() * 600 + 100,
-        }
-      }))
-      setNodes(newNodes)
-      return
-    }
-
-    const visited = new Set<string>()
-    const nodePositions: { [key: string]: { x: number; y: number } } = {}
-    const levelWidths: { [key: number]: number } = {}
-
-    // BFS to assign levels and calculate positions
-    const queue: { nodeId: string; level: number; index: number }[] = []
-    
-    rootNodes.forEach((node, index) => {
-      queue.push({ nodeId: node.id, level: 0, index })
-      visited.add(node.id)
-    })
-
-    while (queue.length > 0) {
-      const { nodeId, level, index } = queue.shift()!
-      
-      // Calculate position for this node
-      const levelWidth = levelWidths[level] || 0
-      const x = level * HORIZONTAL_SPACING + 100
-      const y = levelWidth * VERTICAL_SPACING + 200
-      
-      nodePositions[nodeId] = { x, y }
-      levelWidths[level] = levelWidth + 1
-
-      // Add children to queue
-      const children = adjacencyList[nodeId] || []
-      children.forEach((childId, childIndex) => {
-        if (!visited.has(childId)) {
-          visited.add(childId)
-          queue.push({ 
-            nodeId: childId, 
-            level: level + 1, 
-            index: childIndex 
-          })
-        }
-      })
-    }
-
-    // Handle unvisited nodes (disconnected components)
-    nodes.forEach(node => {
-      if (!visited.has(node.id)) {
-        nodePositions[node.id] = {
-          x: Math.random() * 800 + 100,
-          y: Math.random() * 600 + 100,
-        }
-      }
-    })
-
-    // Update node positions
-    const newNodes = nodes.map(node => ({
-      ...node,
-      position: nodePositions[node.id] || { x: 100, y: 100 }
-    }))
-
-    setNodes(newNodes)
-  }, [nodes, edges, setNodes])
+    setNodes((currentNodes) => autoArrangeNodes(currentNodes, edges))
+  }, [edges, setNodes])
 
   const updateSelectedEdge = useCallback(
     (updates: Partial<CustomEdgeData>) => {
@@ -1012,26 +876,31 @@ export function MindMapCanvas() {
             return (node.data as any)?.color || "oklch(0.45 0.15 265)"
           }}
         />
-        <Panel position="top-left" className="flex gap-2">
-          <div className="flex gap-1 bg-background/80 backdrop-blur-md border border-border/50 rounded-lg p-1">
-            <Button
-              onClick={() => setMode("edit")}
-              size="sm"
-              variant={mode === "edit" ? "default" : "ghost"}
-              className="gap-2"
-            >
-              <Edit3 className="h-4 w-4" />
-              Edit
-            </Button>
-            <Button
-              onClick={() => setMode("preview")}
-              size="sm"
-              variant={mode === "preview" ? "default" : "ghost"}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Preview
-            </Button>
+        <Panel position="top-left">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex gap-1 bg-background/80 backdrop-blur-md border border-border/50 rounded-lg p-1 shadow-lg">
+              <Button
+                onClick={() => setMode("edit")}
+                size="sm"
+                variant={mode === "edit" ? "default" : "ghost"}
+                className="gap-2"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                onClick={() => setMode("preview")}
+                size="sm"
+                variant={mode === "preview" ? "default" : "ghost"}
+                className="gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </Button>
+            </div>
+            <div className="bg-background/80 backdrop-blur-md border border-border/50 rounded-lg p-1 shadow-lg">
+              <ThemeToggle />
+            </div>
           </div>
         </Panel>
         <Panel position="top-center" className="flex gap-2">
